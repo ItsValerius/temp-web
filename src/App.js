@@ -15,42 +15,6 @@ const API_URL = "http://localhost:8000/api";
   const [names,setNames] = useState([]);
   const [screenName,setScreenName] = useState("");
 
-  const [index, setIndex] = useState(0);
-
-  //Go through the input split by newline and comma remove last if empty
-  const parseInput = () => {
-    if (textarea) {
-      let ArrayTextarea = textarea.split("\n");
-
-      ArrayTextarea = ArrayTextarea.map((at) => {
-        return at.split(",");
-      });
-
-      const parsedInput = ArrayTextarea.map((at) => {
-        return { y: at[0], x: at[2] };
-      });
-
-      if (parsedInput[parsedInput.length - 1].y === "") {
-        parsedInput.pop();
-        return parsedInput;
-      }
-      return parsedInput;
-    }
-  };
-
-  //clean up input data prepare for graph
-
-  const cleanData = (rpiData) => {
-    if (rpiData) {
-      const splitData = rpiData.map((data) => {
-        return { x: data.x.split(".")[0], y: data.y };
-      });
-      const cleanedData = { id: `rpi-leipzig-${index}`, data: splitData };
-      setIndex(index + 1);
-      return cleanedData;
-    }
-  };
-
   const fetchScreenNames = async () => {
     const res = await fetch(API_URL + "/names");
     const json = await res.json();
@@ -61,7 +25,6 @@ const API_URL = "http://localhost:8000/api";
 
 useEffect(() => {
   fetchScreenNames();
-
 },[])
 
   //call weather api and clean up the data
@@ -93,7 +56,9 @@ useEffect(() => {
 
      //still need to fix this
 if(Array.isArray(weather) && weather.length > 0)
-   { fetchWeather().then(w => { setWeather([...w,...weather.shift()])})
+   {
+     console.log(weather.length);
+      fetchWeather().then((w) => { let newWeather = weather; newWeather.shift(); setWeather([...w,...newWeather])})
 }
     
   }, [startDate, endDate]);
