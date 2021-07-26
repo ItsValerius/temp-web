@@ -51,6 +51,19 @@ const API_URL = "http://localhost:8000/api";
     }
   };
 
+  const fetchScreenNames = async () => {
+    const res = await fetch(API_URL + "/names");
+    const json = await res.json();
+    setNames(await json);
+    setScreenName(await json[0].name);
+  }
+
+
+useEffect(() => {
+  fetchScreenNames();
+
+},[])
+
   //call weather api and clean up the data
 
   useEffect(() => {
@@ -68,33 +81,26 @@ const API_URL = "http://localhost:8000/api";
         return { y: weather.temperature, x: weather.timestamp };
       });
 
-      const cleanWeatherData = weatherData.map((data) => {
+      const cleanWeatherData = await weatherData.map((data) => {
         return { x: data.x.replace(/T/gm, " ").split("+")[0], y: data.y };
       });
 
-      
-
-      setWeather([{ id: "leipzig", data: cleanWeatherData }]);
+      return (  [{ id: "leipzig", data: cleanWeatherData }]);
     };
+    if(weather.length === 0)
+    console.log( [fetchWeather()]);
+     {fetchWeather().then(w => setWeather(w))}
 
-    const fetchScreenNames = async () => {
-      const res = await fetch(API_URL + "/names");
-      const json = await res.json();
-      setNames(await json);
-      setScreenName(await json[0].name);
-    }
-
-    fetchWeather();
-    fetchScreenNames();
+     //still need to fix this
+if(Array.isArray(weather) && weather.length > 0)
+   { fetchWeather().then(w => { setWeather([...w,...weather.shift()])})
+}
+    
   }, [startDate, endDate]);
-  //call input parsing and update graph data
+
+
   const formSubmition = (e) => {
     e.preventDefault();
-    // const parsedInput = parseInput();
-    // const cleanedData = cleanData(parsedInput);
-
-
-
     setWeather([...weather, cleanedData]);
   };
 
@@ -201,16 +207,11 @@ const API_URL = "http://localhost:8000/api";
             formSubmition(e);
           }}
         >
-          {/* <textarea
-            value={textarea}
-            placeholder="Logs go here"
-            onChange={(e) => {
-              setTextarea(e.target.value);
-            }}
-          /> */}
+          <p>Datei hochladen</p>
           <input type="file" name="file" />
           <input type="submit" value="RPI Temperaturen hinzufügen" />
         </form>
+        <p>Datenlinie entfernen</p>
         <button
           onClick={() => {
             removeLine();
@@ -218,22 +219,27 @@ const API_URL = "http://localhost:8000/api";
         >
           remove
         </button>
-        <div>
+        <form onSubmit={(e) => {e.preventDefault(); setStartDate(new Date (e.target[0].value));setEndDate(new Date (e.target[1].value))}}>
+          <p>Zeitraum</p>
           <input
             type="date"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(new Date(e.target.value));
-            }}
+             defaultValue={startDate.toISOString().substring(0,10)}
+            // value={startDate}
+            // onChange={(e) => {
+            //   setStartDate(new Date(e.target.value));
+            // }}
           />
           <input
             type="date"
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(new Date(e.target.value));
-            }}
+            
+             defaultValue={endDate.toISOString().substring(0,10)}
+            // value={endDate}
+            // onChange={(e) => {
+            //   setEndDate(new Date(e.target.value));
+            // }}
           />
-        </div>
+          <input type="submit" />
+        </form>
         <form onSubmit={(e) => handleScreenSubmit(e)} >
           <select value={screenName} onChange={(e) => {setScreenName(e.target.value)}}>
             {names.map((name) => {return (<option key={name.name} value={name.name}>{name.name}</option>)})}
@@ -245,7 +251,9 @@ const API_URL = "http://localhost:8000/api";
     );
   } else {
     return (
+      <div className="App">
       <h1 style={{ display: "grid", justifyItems: "center" }}> Loading... </h1>
+      </div>
     );
   }
 }
