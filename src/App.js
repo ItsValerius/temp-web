@@ -51,13 +51,10 @@ useEffect(() => {
       return (  [{ id: "leipzig", data: cleanWeatherData }]);
     };
     if(weather.length === 0)
-    console.log( [fetchWeather()]);
      {fetchWeather().then(w => setWeather(w))}
 
-     //still need to fix this
 if(Array.isArray(weather) && weather.length > 0)
    {
-     console.log(weather.length);
       fetchWeather().then((w) => { let newWeather = weather; newWeather.shift(); setWeather([...w,...newWeather])})
 }
     
@@ -66,14 +63,15 @@ if(Array.isArray(weather) && weather.length > 0)
 
   const formSubmition = (e) => {
     e.preventDefault();
-    setWeather([...weather, cleanedData]);
+   if(e.target.value)
+    {setWeather([...weather, cleanedData]);}
   };
 
   //wait for weather Data and then display the graph
 
-  const removeLine = () => {
-    if (weather.length > 1)
-      setWeather(weather.filter((item) => item.id !== weather.pop().id));
+  const removeLine = (e) => {
+    e.preventDefault();
+      setWeather(weather.filter((item) => item.id !== e.target[0].value));
   };
 
   //Handle Screen Submit
@@ -86,10 +84,8 @@ if(Array.isArray(weather) && weather.length > 0)
   const getSingleScreen = async () => 
   {
     const url = API_URL + "/show/one?name="+screenName;
-    console.log(url);
     const res = await fetch(API_URL + "/show/one?name="+screenName);
     const json = await res.json();
-    console.log(await json);
    const xyjson = json.map((row) => {
     return {x: row.timestamp,y:row.temperature};
     })
@@ -99,7 +95,6 @@ if(Array.isArray(weather) && weather.length > 0)
   }
 
   if (weather.length&&Array.isArray(weather) && names.length&&Array.isArray(names)) {   
-  console.log(weather);
     return (
       <div className="App">
         <ResponsiveLineCanvas
@@ -176,14 +171,13 @@ if(Array.isArray(weather) && weather.length > 0)
           <input type="file" name="file" />
           <input type="submit" value="RPI Temperaturen hinzufügen" />
         </form>
+        <form onSubmit={(e) => {removeLine(e)}}>
         <p>Datenlinie entfernen</p>
-        <button
-          onClick={() => {
-            removeLine();
-          }}
-        >
-          remove
-        </button>
+        <select value={screenName} onChange={(e) => {setScreenName(e.target.value)}}>
+            {names.map((name) => {return (<option key={name.name} value={name.name}>{name.name}</option>)})}
+          </select>
+<input type="submit" />
+        </form>
         <form onSubmit={(e) => {e.preventDefault(); setStartDate(new Date (e.target[0].value));setEndDate(new Date (e.target[1].value))}}>
           <p>Zeitraum</p>
           <input
@@ -196,7 +190,6 @@ if(Array.isArray(weather) && weather.length > 0)
           />
           <input
             type="date"
-            
              defaultValue={endDate.toISOString().substring(0,10)}
             // value={endDate}
             // onChange={(e) => {
