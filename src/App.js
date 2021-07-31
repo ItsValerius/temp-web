@@ -3,108 +3,201 @@ import { useState, useEffect } from "react";
 import { ResponsiveLineCanvas } from "@nivo/line";
 //import { ResponsiveLine } from "@nivo/line";
 export default function App() {
+  const API_URL = "http://localhost:8000/api";
+  const [graphData, setGraphData] = useState([]);
+  const [names, setNames] = useState([]);
+  const [screenName, setScreenName] = useState("");
+  const [text, setText] = useState("");
 
-const API_URL = "http://localhost:8000/api";
-
-  const [weather, setWeather] = useState([]);
-  const [textarea, setTextarea] = useState();
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(
-    new Date(new Date().setDate(new Date().getDate() + 7))
-  );
-  const [names,setNames] = useState([]);
-  const [screenName,setScreenName] = useState("");
-
+  //Call api to get all screen names
   const fetchScreenNames = async () => {
     const res = await fetch(API_URL + "/names");
     const json = await res.json();
-    setNames(await json);
-    setScreenName(await json[0].name);
-  }
+    if (json.length > 0) {
+      setNames(await json);
+      setScreenName(await json[0].name);
+    }
+  };
 
+  const fetchWeather = async (
+    startDate = new Date(),
+    endDate = new Date(new Date().setDate(new Date().getDate() + 7))
+  ) => {
+    const res = await fetch(
+      `https://api.brightsky.dev/weather?date=${startDate
+        .toISOString()
+        .substring(0, 10)}&last_date=${endDate
+        .toISOString()
+        .substring(0, 10)}&lat=51.3396955&lon=12.3730747`
+    );
 
-useEffect(() => {
-  fetchScreenNames();
-},[])
+    const json = await res.json();
+    const weatherData = await json.weather.map((weather) => {
+      return { y: weather.temperature, x: weather.timestamp };
+    });
 
-  //call weather api and clean up the data
+    const cleanWeatherData = await weatherData.map((data) => {
+      return { x: data.x.replace(/T/gm, " ").split("+")[0], y: data.y };
+    });
+    return { id: "weather", data: cleanWeatherData };
+  };
+
+  const fetchAll = async () => {
+    fetchScreenNames();
+    setGraphData([await fetchWeather()]);
+  };
 
   useEffect(() => {
-    const fetchWeather = async () => {
-      const res = await fetch(
-        `https://api.brightsky.dev/weather?date=${startDate
-          .toISOString()
-          .substring(0, 10)}&last_date=${endDate
-          .toISOString()
-          .substring(0, 10)}&lat=51.3396955&lon=12.3730747`
-      );
+    fetchAll();
+  }, []);
 
-      const json = await res.json();
-      const weatherData = await json.weather.map((weather) => {
-        return { y: weather.temperature, x: weather.timestamp };
-      });
-
-      const cleanWeatherData = await weatherData.map((data) => {
-        return { x: data.x.replace(/T/gm, " ").split("+")[0], y: data.y };
-      });
-
-      return (  [{ id: "leipzig", data: cleanWeatherData }]);
-    };
-    if(weather.length === 0)
-     {fetchWeather().then(w => setWeather(w))}
-
-if(Array.isArray(weather) && weather.length > 0)
-   {
-      fetchWeather().then((w) => { let newWeather = weather; newWeather.shift(); setWeather([...w,...newWeather])})
-}
-    
-  }, [startDate, endDate]);
-
+  //Handle file upload
 
   const formSubmition = (e) => {
     e.preventDefault();
-   if(e.target.value)
-    {setWeather([...weather, cleanedData]);}
+    if (e.target[1].files[0] && text) {
+      postFile(e.target[1].files[0]);
+      setNames([...names, { name: text }]);
+      setText("");
+    }
+  };
+
+  const postFile = async (file) => {
+    const formData = new FormData();
+    formData.append("name", text);
+    formData.append("file", file);
+    const res = await fetch(API_URL + "/fileUpload", {
+      method: "POST",
+      body: formData,
+      headers: { Accept: "application/json" },
+    });
   };
 
   //wait for weather Data and then display the graph
 
   const removeLine = (e) => {
     e.preventDefault();
-      setWeather(weather.filter((item) => item.id !== e.target[0].value));
+    setGraphData(graphData.filter((item) => item.id !== e.target[0].value));
   };
 
   //Handle Screen Submit
 
   const handleScreenSubmit = (e) => {
     e.preventDefault();
-    getSingleScreen();
-  }
+    getSingleScreen().then((ScreenData) => updateWeather(ScreenData));
+    // setStartDate(new Date(graphData[graphData.length - 1].data[0].x));
+    //   setEndDate(
+    //     new Date(
+    //       graphData[graphData.length - 1].data[
+    //         graphData[graphData.length - 1].data.length - 1
+    //       ].x
+    //     )
+    //   );
+  };
 
-  const getSingleScreen = async () => 
-  {
-    const url = API_URL + "/show/one?name="+screenName;
-    const res = await fetch(API_URL + "/show/one?name="+screenName);
+  //fetch screen Data from api
+
+  const getSingleScreen = async () => {
+    const res = await fetch(API_URL + "/show/one?name=" + screenName);
     const json = await res.json();
-   const xyjson = json.map((row) => {
-    return {x: row.timestamp,y:row.temperature};
-    })
-    const screenData = {id:screenName,data:xyjson};
+    const xyjson = await json.map((row) => {
+      return { x: row.timestamp, y: row.temperature };
+    });
+    return { id: screenName, data: await xyjson };
+  };
 
-      setWeather([...weather, screenData]);
-  }
+  //set dates for weather to min and max date of dataset
 
-  if (weather.length&&Array.isArray(weather) && names.length&&Array.isArray(names)) {   
+  const updateWeather = (ScreenData) => {
+    let array = [ScreenData, ...graphData];
+    let newStartDate = new Date(
+      Math.min(
+        ...array.map((gd) =>
+          Math.min(...gd.data.map((data) => new Date(data.x)))
+        )
+      )
+    );
+    let newEndDate = new Date(
+      Math.max(
+        ...array.map((gd) =>
+          Math.max(...gd.data.map((data) => new Date(data.x)))
+        )
+      )
+    );
+    fetchWeather(newStartDate, newEndDate).then((w) => {
+      if (array.length > 0) {
+        array.pop();
+      }
+      setGraphData([...array, w]);
+    });
+  };
+
+  //names for screen options
+  const OptionNames = () =>
+    names.map((name) => {
+      return (
+        <option key={name.name} value={name.name}>
+          {name.name}
+        </option>
+      );
+    });
+
+  const DeleteLine = () => {
+    if (Array.isArray(names) && names.length > 0) {
+      return (
+        <form
+          onSubmit={(e) => {
+            removeLine(e);
+          }}
+        >
+          <p>Datenlinie entfernen</p>
+          <select
+            value={screenName}
+            onChange={(e) => {
+              setScreenName(e.target.value);
+            }}
+          >
+            <OptionNames />
+          </select>
+          <input type="submit" />
+        </form>
+      );
+    }
+    return null;
+  };
+
+  const AddLine = () => {
+    if (Array.isArray(names) && names.length > 0) {
+      return (
+        <form onSubmit={(e) => handleScreenSubmit(e)}>
+        <p>Datenlinie hinzufügen</p>
+        <select
+          value={screenName}
+          onChange={(e) => {
+            setScreenName(e.target.value);
+          }}
+        >
+          <OptionNames />
+        </select>
+        <input type="submit" />
+      </form>
+      );
+    }
+    return null;
+  };
+
+
+  if (graphData.length && Array.isArray(graphData)) {
     return (
       <div className="App">
         <ResponsiveLineCanvas
-          data={weather}
+          data={graphData}
           enablePoints={false}
           xScale={{
             type: "time",
             format: "%Y-%m-%d %H:%M:%S",
             useUTC: false,
-            precision: "second"
+            precision: "second",
           }}
           xFormat="time:%Y-%m-%d %H:%M:%S"
           yScale={{
@@ -112,7 +205,7 @@ if(Array.isArray(weather) && weather.length > 0)
             min: "0",
             max: "auto",
             stacked: false,
-            reverse: false
+            reverse: false,
           }}
           margin={{ top: 10, right: 110, bottom: 130, left: 60 }}
           axisBottom={{
@@ -124,7 +217,7 @@ if(Array.isArray(weather) && weather.length > 0)
             legendOffset: 120,
             legendPosition: "middle",
             format: "%Y-%m-%d %H:%M:%S",
-            tickValues: 8
+            tickValues: 8,
           }}
           axisLeft={{
             orient: "left",
@@ -133,7 +226,7 @@ if(Array.isArray(weather) && weather.length > 0)
             tickRotation: 0,
             legend: "Temperatur Leipzig",
             legendOffset: -40,
-            legendPosition: "middle"
+            legendPosition: "middle",
           }}
           legends={[
             {
@@ -155,62 +248,39 @@ if(Array.isArray(weather) && weather.length > 0)
                   on: "hover",
                   style: {
                     itemBackground: "rgba(0, 0, 0, .03)",
-                    itemOpacity: 1
-                  }
-                }
-              ]
-            }
+                    itemOpacity: 1,
+                  },
+                },
+              ],
+            },
           ]}
         />
+        {/* Logfile Upload */}
         <form
           onSubmit={(e) => {
             formSubmition(e);
           }}
         >
           <p>Datei hochladen</p>
+          <input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
           <input type="file" name="file" />
           <input type="submit" value="RPI Temperaturen hinzufügen" />
         </form>
-        <form onSubmit={(e) => {removeLine(e)}}>
-        <p>Datenlinie entfernen</p>
-        <select value={screenName} onChange={(e) => {setScreenName(e.target.value)}}>
-            {names.map((name) => {return (<option key={name.name} value={name.name}>{name.name}</option>)})}
-          </select>
-<input type="submit" />
-        </form>
-        <form onSubmit={(e) => {e.preventDefault(); setStartDate(new Date (e.target[0].value));setEndDate(new Date (e.target[1].value))}}>
-          <p>Zeitraum</p>
-          <input
-            type="date"
-             defaultValue={startDate.toISOString().substring(0,10)}
-            // value={startDate}
-            // onChange={(e) => {
-            //   setStartDate(new Date(e.target.value));
-            // }}
-          />
-          <input
-            type="date"
-             defaultValue={endDate.toISOString().substring(0,10)}
-            // value={endDate}
-            // onChange={(e) => {
-            //   setEndDate(new Date(e.target.value));
-            // }}
-          />
-          <input type="submit" />
-        </form>
-        <form onSubmit={(e) => handleScreenSubmit(e)} >
-          <select value={screenName} onChange={(e) => {setScreenName(e.target.value)}}>
-            {names.map((name) => {return (<option key={name.name} value={name.name}>{name.name}</option>)})}
-          </select>
-          <input type="submit"/>
-        </form>
+        {/* Remove Line */}
+        <DeleteLine />
+
+        {/* Datenlinie hinzufügen */}
+       <AddLine />
       </div>
-      
     );
   } else {
     return (
       <div className="App">
-      <h1 style={{ display: "grid", justifyItems: "center" }}> Loading... </h1>
+        <h1 style={{ display: "grid", justifyItems: "center" }}>Loading...</h1>
       </div>
     );
   }
