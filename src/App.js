@@ -1,6 +1,8 @@
 import "./styles.css";
 import { useState, useEffect } from "react";
 import { ResponsiveLineCanvas } from "@nivo/line";
+import NameInputs from "./NameInputs";
+
 //import { ResponsiveLine } from "@nivo/line";
 export default function App() {
   const API_URL = "http://localhost:8000/api";
@@ -8,7 +10,8 @@ export default function App() {
   const [names, setNames] = useState([]);
   const [screenName, setScreenName] = useState("");
   const [text, setText] = useState("");
-
+  const [texts, setTexts] = useState({});
+  const [files, setFiles] = useState([]);
   //Call api to get all screen names
   const fetchScreenNames = async () => {
     const res = await fetch(API_URL + "/names");
@@ -55,17 +58,20 @@ export default function App() {
 
   const formSubmition = (e) => {
     e.preventDefault();
-    if (e.target[1].files[0] && text) {
-      postFile(e.target[1].files[0]);
-      setNames([...names, { name: text }]);
-      setText("");
-    }
+    postFile();
   };
 
-  const postFile = async (file) => {
+  const postFile = async () => {
     const formData = new FormData();
-    formData.append("name", text);
-    formData.append("file", file);
+    Array.from(files).map((file) => {
+      formData.append("files[]", file);
+    });
+    for (let key in texts){
+      formData.append("names[]",texts[key])
+    }
+
+    // formData.append("name", text);
+    // formData.append("file", file);
     const res = await fetch(API_URL + "/fileUpload", {
       method: "POST",
       body: formData,
@@ -85,14 +91,6 @@ export default function App() {
   const handleScreenSubmit = (e) => {
     e.preventDefault();
     getSingleScreen().then((ScreenData) => updateWeather(ScreenData));
-    // setStartDate(new Date(graphData[graphData.length - 1].data[0].x));
-    //   setEndDate(
-    //     new Date(
-    //       graphData[graphData.length - 1].data[
-    //         graphData[graphData.length - 1].data.length - 1
-    //       ].x
-    //     )
-    //   );
   };
 
   //fetch screen Data from api
@@ -141,7 +139,7 @@ export default function App() {
         </option>
       );
     });
-
+  //Remove Line from Graph
   const DeleteLine = () => {
     if (Array.isArray(names) && names.length > 0) {
       return (
@@ -165,27 +163,39 @@ export default function App() {
     }
     return null;
   };
-
+  //Add Line to Graph
   const AddLine = () => {
     if (Array.isArray(names) && names.length > 0) {
       return (
         <form onSubmit={(e) => handleScreenSubmit(e)}>
-        <p>Datenlinie hinzufügen</p>
-        <select
-          value={screenName}
-          onChange={(e) => {
-            setScreenName(e.target.value);
-          }}
-        >
-          <OptionNames />
-        </select>
-        <input type="submit" />
-      </form>
+          <p>Datenlinie hinzufügen</p>
+          <select
+            value={screenName}
+            onChange={(e) => {
+              setScreenName(e.target.value);
+            }}
+          >
+            <OptionNames />
+          </select>
+          <input type="submit" />
+        </form>
       );
     }
     return null;
   };
+  //handle change function for name inputs
+  const handleChange = (index, value) => {
+    setTexts({ ...texts, [index]: value });
+  };
 
+  const handleFiles = (e) => {
+    setFiles(e.target.files);
+    setTexts({
+      ...Array.from(e.target.files).map(() => {
+        return "";
+      }),
+    });
+  };
 
   if (graphData.length && Array.isArray(graphData)) {
     return (
@@ -267,14 +277,19 @@ export default function App() {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <input type="file" name="file" />
+          <NameInputs
+            handleChange={handleChange}
+            files={files}
+            texts={texts}
+            key={1}
+          />
+          <input type="file" name="file" multiple onChange={handleFiles} />
           <input type="submit" value="RPI Temperaturen hinzufügen" />
         </form>
         {/* Remove Line */}
         <DeleteLine />
-
         {/* Datenlinie hinzufügen */}
-       <AddLine />
+        <AddLine />
       </div>
     );
   } else {

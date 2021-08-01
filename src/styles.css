@@ -4,3 +4,11 @@
   width: 100%;
   height: 700px;
 }
+
+.filepond--file-action-button {
+  cursor: pointer;
+}
+
+.filepond--panel-root {
+  background-color: rgb(170, 170, 170);
+}
